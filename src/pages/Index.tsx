@@ -5,10 +5,10 @@ import ExtractedData from "@/components/ExtractedData";
 import PropertyMap from "@/components/PropertyMap";
 import LandInsights from "@/components/LandInsights";
 import PropertyTable from "@/components/PropertyTable";
-import { sampleProperties } from "@/data/mockData";
 import type { PropertyRecord } from "@/data/mockData";
 
 const Index = () => {
+  const [properties, setProperties] = useState<PropertyRecord[]>([]);
   const [extractedProperty, setExtractedProperty] = useState<PropertyRecord | null>(null);
   const [rawText, setRawText] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -17,42 +17,53 @@ const Index = () => {
     setExtractedProperty(property);
     setRawText(text);
     setSelectedId(property.id);
+    setProperties((prev) => {
+      // Replace if same id, otherwise add
+      const exists = prev.find((p) => p.id === property.id);
+      if (exists) return prev.map((p) => (p.id === property.id ? property : p));
+      return [...prev, property];
+    });
   }, []);
 
-  const handleSelect = useCallback((id: string) => {
-    setSelectedId(id);
-    const found = sampleProperties.find((p) => p.id === id);
-    if (found) {
-      setExtractedProperty(found);
-    }
-  }, []);
+  const handleSelect = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      const found = properties.find((p) => p.id === id);
+      if (found) setExtractedProperty(found);
+    },
+    [properties]
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-6 space-y-6">
-        {/* Top row: Upload + Extracted Data */}
         <div className="grid md:grid-cols-2 gap-6">
           <DocumentUpload onExtracted={handleExtracted} />
           <ExtractedData property={extractedProperty} rawText={rawText} />
         </div>
 
-        {/* Map */}
-        <PropertyMap
-          properties={sampleProperties}
-          selectedId={selectedId}
-          onSelect={handleSelect}
-        />
+        {properties.length > 0 && (
+          <>
+            <PropertyMap
+              properties={properties}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+            />
+            <LandInsights visible={!!extractedProperty} />
+            <PropertyTable
+              properties={properties}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+            />
+          </>
+        )}
 
-        {/* Insights */}
-        <LandInsights visible={!!extractedProperty} />
-
-        {/* Table */}
-        <PropertyTable
-          properties={sampleProperties}
-          selectedId={selectedId}
-          onSelect={handleSelect}
-        />
+        {properties.length === 0 && (
+          <div className="text-center py-16 text-muted-foreground">
+            <p className="text-sm">Upload a land document to see extracted data, map location, and insights.</p>
+          </div>
+        )}
       </main>
 
       <footer className="border-t border-border/50 py-4 text-center text-xs text-muted-foreground">
