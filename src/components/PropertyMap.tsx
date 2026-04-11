@@ -18,9 +18,15 @@ const PropertyMap = ({ properties, selectedId, onSelect }: Props) => {
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
+    // Center on first property or default
+    const first = properties[0];
+    const center: L.LatLngExpression = first
+      ? (first.coordinates as L.LatLngExpression)
+      : [11.74, 79.76];
+
     const map = L.map(mapRef.current, {
-      center: [18.755, 73.39],
-      zoom: 13,
+      center,
+      zoom: 14,
       zoomControl: false,
     });
 
@@ -37,22 +43,26 @@ const PropertyMap = ({ properties, selectedId, onSelect }: Props) => {
       map.remove();
       mapInstanceRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    // Clear existing layers (except tile layer)
+    // Clear non-tile layers
     map.eachLayer((layer) => {
       if (!(layer instanceof L.TileLayer)) map.removeLayer(layer);
     });
+
+    if (properties.length === 0) return;
+
+    const bounds = L.latLngBounds([]);
 
     properties.forEach((p) => {
       const isSelected = p.id === selectedId;
       const color = isSelected ? "#e97319" : "#2a9d5c";
 
-      // Boundary polygon
       const polygon = L.polygon(p.boundary as L.LatLngExpression[], {
         color,
         weight: isSelected ? 3 : 2,
@@ -70,8 +80,8 @@ const PropertyMap = ({ properties, selectedId, onSelect }: Props) => {
       `);
 
       polygon.on("click", () => onSelect(p.id));
+      bounds.extend(polygon.getBounds());
 
-      // Marker
       const marker = L.circleMarker(p.coordinates as L.LatLngExpression, {
         radius: isSelected ? 8 : 6,
         fillColor: color,
@@ -81,11 +91,14 @@ const PropertyMap = ({ properties, selectedId, onSelect }: Props) => {
       }).addTo(map);
 
       marker.on("click", () => onSelect(p.id));
-
-      if (isSelected) {
-        map.flyTo(p.coordinates as L.LatLngExpression, 14, { duration: 0.8 });
-      }
     });
+
+    if (selectedId) {
+      const sel = properties.find((p) => p.id === selectedId);
+      if (sel) map.flyTo(sel.coordinates as L.LatLngExpression, 15, { duration: 0.8 });
+    } else {
+      map.fitBounds(bounds, { padding: [30, 30] });
+    }
   }, [properties, selectedId, onSelect]);
 
   return (
