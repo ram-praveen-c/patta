@@ -1,14 +1,54 @@
+export interface SurveyDetail {
+  survey_no: string;
+  subdivision: string;
+  area: string;
+}
+
 export interface PropertyRecord {
   id: string;
   owner: string;
   survey_number: string;
+  subdivision?: string;
+  patta_number?: string;
   village: string;
+  taluk?: string;
+  district?: string;
   land_area: string;
+  classification?: string;
+  survey_details?: SurveyDetail[];
   coordinates: [number, number];
   boundary: [number, number][];
   document_type: string;
   extracted_at: string;
   confidence: number;
+  confidence_scores?: {
+    ocr_confidence: number;
+    location_confidence: number;
+    location_confidence_detail: string;
+    overall_score: number;
+  };
+  fraud_report?: {
+    fraud_score: number;
+    risk_level: string;
+    warnings: string[];
+  };
+  nearby_amenities?: {
+    metro_stations: string;
+    hospitals: string;
+    schools: string;
+    water_bodies: string;
+  };
+  quality_report?: {
+    blur_variance: number;
+    average_brightness: number;
+    width: number;
+    height: number;
+    is_blurry: boolean;
+    is_dark: boolean;
+    is_overexposed: boolean;
+    is_low_resolution: boolean;
+    warnings: string[];
+  };
 }
 
 export const sampleProperties: PropertyRecord[] = [
