@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: landlens_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - FRONTEND_URL=http://localhost:5173,http://localhost:3000,http://localhost:4173
+      - DATABASE_PATH=/app/data/land_intelligence.db
+      - MAPS_DIR=/app/data/maps
+    volumes:
+      - landlens_backend_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  landlens_backend_data:

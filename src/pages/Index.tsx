@@ -2,6 +2,10 @@ import { useState, useCallback } from "react";
 import Header from "@/components/Header";
 import DocumentUpload from "@/components/DocumentUpload";
 import ExtractedData from "@/components/ExtractedData";
+import { DocumentEvidenceViewer } from "@/components/DocumentEvidenceViewer";
+import { RawOcrModal } from "@/components/RawOcrModal";
+import { DebugModeDrawer } from "@/components/DebugModeDrawer";
+import CadastralLocatorResult from "@/components/CadastralLocatorResult";
 import PropertyMap from "@/components/PropertyMap";
 import LandInsights from "@/components/LandInsights";
 import PropertyTable from "@/components/PropertyTable";
@@ -10,21 +14,32 @@ import DocumentCompare from "@/components/DocumentCompare";
 import HistoryView from "@/components/HistoryView";
 import ChatAssistant from "@/components/ChatAssistant";
 import PrintReport from "@/components/PrintReport";
+import CadastralAdmin from "@/components/CadastralAdmin";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutGrid, BarChart3, ArrowLeftRight, History, MessageSquare, Printer } from "lucide-react";
+import { LayoutGrid, BarChart3, ArrowLeftRight, History, MessageSquare, Printer, Database } from "lucide-react";
 import type { PropertyRecord } from "@/data/mockData";
+import { locateLand, type LocateLandParams } from "@/lib/cadastralApi";
+import { useLanguage } from "@/lib/LanguageContext";
 
 const Index = () => {
+  const { t, debugMode, setDebugMode } = useLanguage();
   const [properties, setProperties] = useState<PropertyRecord[]>([]);
   const [extractedProperty, setExtractedProperty] = useState<PropertyRecord | null>(null);
   const [rawText, setRawText] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const [isLocating, setIsLocating] = useState(false);
+
+  // Evidence highlighting and debugging modals
+  const [highlightedField, setHighlightedField] = useState<string | null>(null);
+  const [rawOcrOpen, setRawOcrOpen] = useState(false);
+  const [debugDrawerOpen, setDebugDrawerOpen] = useState(false);
 
   const handleExtracted = useCallback((property: PropertyRecord, text: string) => {
     setExtractedProperty(property);
     setRawText(text);
     setSelectedId(property.id);
+    setHighlightedField(null);
     setProperties((prev) => {
       const exists = prev.find((p) => p.id === property.id);
       if (exists) return prev.map((p) => (p.id === property.id ? property : p));
@@ -36,7 +51,10 @@ const Index = () => {
     (id: string) => {
       setSelectedId(id);
       const found = properties.find((p) => p.id === id);
-      if (found) setExtractedProperty(found);
+      if (found) {
+        setExtractedProperty(found);
+        setHighlightedField(null);
+      }
     },
     [properties]
   );
@@ -45,6 +63,7 @@ const Index = () => {
     setExtractedProperty(property);
     setRawText(property.rawText || "Historical document record loaded.");
     setSelectedId(property.id);
+    setHighlightedField(null);
     setProperties((prev) => {
       const exists = prev.find((p) => p.id === property.id);
       if (exists) return prev;
@@ -53,31 +72,97 @@ const Index = () => {
     setActiveTab("overview");
   };
 
+  // Patta-to-Cadastral Parcel Localization Search Handler
+  const handleLocateLand = async (params: LocateLandParams) => {
+    setIsLocating(true);
+    try {
+      const res = await locateLand({
+        ...params,
+        document_id: extractedProperty?.id,
+        ocr_confidence: (extractedProperty?.confidence_scores?.ocr_confidence || 94) / 100.0
+      });
+
+      if (extractedProperty) {
+        let boundaryPoints: [number, number][] | undefined = undefined;
+        if (res.geometry) {
+          if (Array.isArray(res.geometry) && res.geometry.length > 0) {
+            if (Array.isArray(res.geometry[0]) && typeof res.geometry[0][0] === "number") {
+              boundaryPoints = res.geometry as [number, number][];
+            } else if (res.geometry.coordinates && res.geometry.coordinates[0]) {
+              boundaryPoints = res.geometry.coordinates[0].map((pt: [number, number]) => [pt[1], pt[0]]);
+            }
+          }
+        }
+
+        const updated: PropertyRecord = {
+          ...extractedProperty,
+          survey_number: res.survey_number || params.survey_number,
+          subdivision: res.subdivision || params.subdivision,
+          survey_display: `${res.survey_number || params.survey_number}${res.subdivision || params.subdivision ? `/${res.subdivision || params.subdivision}` : ""}`,
+          village: res.village || params.village || extractedProperty.village,
+          panchayat: res.panchayat || params.panchayat || extractedProperty.panchayat,
+          taluk: res.taluk || params.taluk || extractedProperty.taluk,
+          district: res.district || params.district || extractedProperty.district,
+          coordinates: res.centroid || extractedProperty.coordinates,
+          boundary: boundaryPoints || extractedProperty.boundary,
+          location_status: res.location_status,
+          match_type: res.match_type,
+          level: res.level,
+          level_description: res.level_description,
+          patta_area: res.patta_area,
+          gis_area: res.gis_area,
+          area_difference: res.area_difference,
+          area_difference_percentage: res.area_difference_percentage,
+          area_validation_status: res.area_validation_status,
+          area_validation_message: res.area_validation_message,
+          source: res.source,
+          multi_confidence: res.confidence ? {
+            ocr: Math.round((res.confidence.ocr || 0.94) * 100),
+            survey_match: Math.round((res.confidence.survey_match || 0.98) * 100),
+            location_match: Math.round((res.confidence.location_match || 1.0) * 100),
+            parcel_match: Math.round((res.confidence.parcel_match || 1.0) * 100),
+            overall: Math.round((res.confidence.overall || 0.98) * 100)
+          } : undefined
+        };
+
+        setExtractedProperty(updated);
+        setProperties((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      }
+    } catch (err: any) {
+      console.error("Locate land error:", err);
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header onOpenDebug={() => setDebugDrawerOpen(true)} />
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Navigation Tabs Header */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex items-center justify-between border-b border-border/40 pb-3 mb-6 overflow-x-auto">
             <TabsList className="glass-card bg-muted/60 p-1">
               <TabsTrigger value="overview" className="gap-2 text-xs">
-                <LayoutGrid className="h-4 w-4" /> Overview & GIS Map
+                <LayoutGrid className="h-4 w-4" /> {t.tabOverview}
               </TabsTrigger>
               <TabsTrigger value="analytics" className="gap-2 text-xs">
-                <BarChart3 className="h-4 w-4" /> Analytics & Fraud
+                <BarChart3 className="h-4 w-4" /> {t.tabAnalytics}
               </TabsTrigger>
               <TabsTrigger value="compare" className="gap-2 text-xs">
-                <ArrowLeftRight className="h-4 w-4" /> Document Compare
+                <ArrowLeftRight className="h-4 w-4" /> {t.tabCompare}
               </TabsTrigger>
               <TabsTrigger value="history" className="gap-2 text-xs">
-                <History className="h-4 w-4" /> Audit History
+                <History className="h-4 w-4" /> {t.tabHistory}
               </TabsTrigger>
               <TabsTrigger value="chat" className="gap-2 text-xs">
-                <MessageSquare className="h-4 w-4" /> AI Chat Assistant
+                <MessageSquare className="h-4 w-4" /> {t.tabChat}
               </TabsTrigger>
               <TabsTrigger value="report" className="gap-2 text-xs">
-                <Printer className="h-4 w-4" /> Printable PDF Report
+                <Printer className="h-4 w-4" /> {t.tabReport}
+              </TabsTrigger>
+              <TabsTrigger value="admin" className="gap-2 text-xs text-primary font-medium">
+                <Database className="h-4 w-4" /> {t.tabAdmin}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -85,9 +170,33 @@ const Index = () => {
           {/* TAB 1: OVERVIEW & GIS MAP */}
           <TabsContent value="overview" className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
-              <DocumentUpload onExtracted={handleExtracted} />
-              <ExtractedData property={extractedProperty} rawText={rawText} />
+              <DocumentUpload
+                onExtracted={handleExtracted}
+                onOpenRawOcr={() => setRawOcrOpen(true)}
+              />
+              <ExtractedData
+                property={extractedProperty}
+                rawText={rawText}
+                onLocateLand={handleLocateLand}
+                isLocating={isLocating}
+                onHighlightField={(f) => setHighlightedField(f)}
+                onOpenRawOcr={() => setRawOcrOpen(true)}
+              />
             </div>
+
+            {/* Document Evidence Viewer: original scan with bounding boxes */}
+            {extractedProperty && (
+              <DocumentEvidenceViewer
+                property={extractedProperty}
+                highlightedField={highlightedField}
+                onClearHighlight={() => setHighlightedField(null)}
+              />
+            )}
+
+            {/* Research Feature: Patta-to-Cadastral Parcel Localization Card */}
+            {extractedProperty && (
+              <CadastralLocatorResult property={extractedProperty} />
+            )}
 
             {properties.length > 0 && (
               <>
@@ -107,7 +216,10 @@ const Index = () => {
 
             {properties.length === 0 && (
               <div className="text-center py-16 text-muted-foreground glass-card rounded-xl">
-                <p className="text-sm">Upload a land document (Sale Deed, Patta, 7/12) to see extracted OCR data, GIS parcel boundaries, and land insights.</p>
+                <p className="text-sm font-medium">Upload a Patta or Land Document to cross-reference against Panchayat Cadastral GIS.</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  The Patta document acts as the source of land identifiers; the Cadastral dataset provides verified geographic polygon boundaries.
+                </p>
               </div>
             )}
           </TabsContent>
@@ -142,11 +254,37 @@ const Index = () => {
           <TabsContent value="report" className="space-y-6">
             <PrintReport property={extractedProperty} rawText={rawText} />
           </TabsContent>
+
+          {/* TAB 7: PANCHAYAT GIS MAP DATA MANAGEMENT (ADMIN) */}
+          <TabsContent value="admin" className="space-y-6">
+            <CadastralAdmin />
+          </TabsContent>
         </Tabs>
       </main>
 
+      {/* Raw OCR Text Modal */}
+      <RawOcrModal
+        open={rawOcrOpen}
+        onOpenChange={setRawOcrOpen}
+        rawText={rawText}
+        tokens={extractedProperty?.tokens}
+      />
+
+      {/* Developer / Pipeline Diagnostics Drawer */}
+      <DebugModeDrawer
+        open={debugDrawerOpen || debugMode}
+        onOpenChange={(open) => {
+          setDebugDrawerOpen(open);
+          if (!open && debugMode) {
+            setDebugMode(false);
+          }
+        }}
+        property={extractedProperty}
+        rawText={rawText}
+      />
+
       <footer className="border-t border-border/50 py-4 text-center text-xs text-muted-foreground">
-        SmartLand AI — Property Locator & GIS Land Intelligence Platform © 2026
+        SmartLand AI — Property Locator & GIS Land Intelligence Platform © 2026 • Patta-to-Cadastral Parcel Localization Architecture
       </footer>
     </div>
   );

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { PropertyRecord } from "@/data/mockData";
+import { API_BASE_URL } from "@/lib/apiConfig";
 
 interface Props {
   onSelectProperty: (property: PropertyRecord) => void;
@@ -18,8 +19,8 @@ const HistoryView = ({ onSelectProperty }: Props) => {
     setLoading(true);
     try {
       const url = searchQuery
-        ? `http://localhost:8000/api/history?query=${encodeURIComponent(searchQuery)}`
-        : "http://localhost:8000/api/history";
+        ? `${API_BASE_URL}/api/history?query=${encodeURIComponent(searchQuery)}`
+        : `${API_BASE_URL}/api/history`;
 
       const res = await fetch(url);
       if (res.ok) {

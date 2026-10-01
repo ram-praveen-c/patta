@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { PropertyRecord } from "@/data/mockData";
+import { API_BASE_URL } from "@/lib/apiConfig";
 
 interface Props {
   property: PropertyRecord | null;
@@ -37,7 +38,7 @@ const ChatAssistant = ({ property }: Props) => {
 
     try {
       // 1. Try sending query to backend chatbot endpoint
-      const res = await fetch("http://localhost:8000/api/chat", {
+      const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ doc_id: property.id, message: userMsg }),
