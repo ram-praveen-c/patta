@@ -34,29 +34,11 @@ app = FastAPI(
     description="Locates land parcels from Patta documents using Cadastral GIS and Panchayat maps"
 )
 
-# Configure CORS dynamically for Development and Production (Requirement 4)
-frontend_url_env = os.getenv("FRONTEND_URL", "").strip()
-default_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://localhost:4173",
-    "http://127.0.0.1:4173",
-]
-if frontend_url_env:
-    # Production / Staging: parse comma-separated domains
-    origins = [orig.strip() for orig in frontend_url_env.split(",") if orig.strip()]
-    for d in default_origins:
-        if d not in origins:
-            origins.append(d)
-else:
-    # Local development: allow localhost and development tools
-    origins = default_origins + ["*"]
-
+# Configure CORS universally for Mobile (Capacitor/WebView) and Web browsers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

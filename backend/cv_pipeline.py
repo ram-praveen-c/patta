@@ -387,12 +387,14 @@ def detect_document_layout(image: np.ndarray, thresh: np.ndarray) -> List[Dict[s
 def extract_tables(
     image: np.ndarray,
     thresh: np.ndarray,
-    lang: str = "tam+eng"
+    lang: str = "tam+eng",
+    tokens: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """
     Detects table grid lines, segments rows and columns, and extracts
     individual cells while maintaining strict row-column relationships.
     Never joins rows into an unordered text stream.
+    Reconstructs cell content from global OCR tokens to avoid ONNX memory bloat.
     """
     h, w = thresh.shape[:2]
 
@@ -414,8 +416,6 @@ def extract_tables(
 
     detected_tables = []
     cells_with_boxes = []
-
-    rapid = get_rapid_ocr()
 
     for c in contours:
         tx, ty, tw, th = cv2.boundingRect(c)
@@ -466,7 +466,7 @@ def extract_tables(
             curr_row = sorted(curr_row, key=lambda i: i[0])
             rows.append(curr_row)
 
-        # OCR individual row cells
+        # Reconstruct cell text: prefer global OCR tokens (zero additional ONNX allocations)
         table_rows_text = []
         for r_idx, row in enumerate(rows):
             row_texts = []
@@ -475,28 +475,32 @@ def extract_tables(
                 abs_x = tx + cx
                 abs_y = ty + cy
 
-                # Crop cell with safety padding
-                pad = 2
-                cy1 = max(0, cy - pad)
-                cy2 = min(th, cy + ch + pad)
-                cx1 = max(0, cx - pad)
-                cx2 = min(tw, cx + cw + pad)
-                cell_img = table_roi[cy1:cy2, cx1:cx2]
-
                 cell_text = ""
                 cell_conf = 0.0
 
-                # OCR with RapidOCR or Tesseract
-                if rapid:
-                    try:
-                        res, _ = rapid(cell_img)
-                        if res:
-                            cell_text = " ".join([item[1] for item in res]).strip()
-                            cell_conf = float(np.mean([item[2] for item in res]) * 100.0)
-                    except Exception:
-                        cell_text = ""
+                # 1. Match from global OCR tokens (Instant, zero ONNX allocations)
+                if tokens:
+                    cell_toks = []
+                    for tok in tokens:
+                        t_cx = tok.get("x", 0) + tok.get("width", 0) / 2.0
+                        t_cy = tok.get("y", 0) + tok.get("height", 0) / 2.0
+                        if (abs_x - 4) <= t_cx <= (abs_x + cw + 4) and (abs_y - 4) <= t_cy <= (abs_y + ch + 4):
+                            cell_toks.append(tok)
+                    
+                    if cell_toks:
+                        cell_toks.sort(key=lambda t: t.get("x", 0))
+                        cell_text = " ".join([t["text"] for t in cell_toks if t.get("text")]).strip()
+                        confs = [float(t.get("confidence", 80)) for t in cell_toks if t.get("confidence")]
+                        cell_conf = float(np.mean(confs)) if confs else 80.0
 
+                # 2. Fallback to lightweight Tesseract on cell crop only if no token fell in cell
                 if not cell_text:
+                    pad = 2
+                    cy1 = max(0, cy - pad)
+                    cy2 = min(th, cy + ch + pad)
+                    cx1 = max(0, cx - pad)
+                    cx2 = min(tw, cx + cw + pad)
+                    cell_img = table_roi[cy1:cy2, cx1:cx2]
                     try:
                         tess_cfg = '--psm 6'
                         cell_text = pytesseract.image_to_string(cell_img, lang=lang, config=tess_cfg).strip()
@@ -705,11 +709,11 @@ def process_document_pipeline(
     # 4. Layout Detection
     layout_regions = detect_document_layout(proc_img, thresh)
 
-    # 5. Table Detection & Extraction
-    table_result = extract_tables(proc_img, thresh, lang=lang)
-
-    # 6. Multilingual OCR with token bounding boxes
+    # 5. Multilingual OCR with token bounding boxes (single-pass full document ingestion)
     ocr_result = run_multilingual_ocr(proc_img, lang=lang)
+
+    # 6. Table Detection & Extraction (matches cell regions from OCR tokens without re-running models)
+    table_result = extract_tables(proc_img, thresh, lang=lang, tokens=ocr_result.get("tokens", []))
 
     # 7. Visual Images
     orig_b64 = encode_image_to_base64(image)
@@ -739,7 +743,7 @@ def preprocess_image(image_bytes: bytes) -> np.ndarray:
 
 def extract_tables_and_text(image: np.ndarray, lang: str = "tam+eng") -> Dict[str, Any]:
     pre = preprocess_image_pipeline(image)
-    tables = extract_tables(pre["processed_image"], pre["thresh"], lang=lang)
     ocr = run_multilingual_ocr(pre["processed_image"], lang=lang)
+    tables = extract_tables(pre["processed_image"], pre["thresh"], lang=lang, tokens=ocr.get("tokens", []))
     return {"raw_text": ocr["raw_text"], "tables": tables["tables"]}
 

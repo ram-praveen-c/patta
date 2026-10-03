@@ -34,22 +34,23 @@ export async function processDocument(
   formData.append("file", file);
   formData.append("lang", lang);
 
+  const baseUrl = getApiBaseUrl();
   let response;
   try {
-    onProgress?.(2, "Image Quality Check & Preprocessing (Deskewing & Contrast Enhancement)...");
+    onProgress?.(2, "Connecting to Cloud Backend & Ingesting Scan...");
     
     // Connect to LandLens AI FastAPI backend
-    response = await fetch(`${API_BASE_URL}/api/extract`, {
+    response = await fetch(`${baseUrl}/api/extract`, {
       method: "POST",
       body: formData,
     });
   } catch (fetchError: any) {
-    console.error("Backend connection failed:", fetchError);
+    console.error("Backend connection failed to", baseUrl, fetchError);
     return {
       success: false,
       rawText: "",
       property: null,
-      error: "Unable to connect to the LandLens extraction server. Please check your network connection and verify the backend is running.",
+      error: `Could not reach backend (${baseUrl}). If the free cloud server was sleeping, please wait 30 seconds for it to wake up and tap Upload again. You can also tap the Server icon above to test the connection.`,
     };
   }
 

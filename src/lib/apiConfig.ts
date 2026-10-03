@@ -1,9 +1,11 @@
+export const DEFAULT_PRODUCTION_API_URL = "https://ai-land-assist.onrender.com";
+
 /**
  * Global API URL Configuration
  * 
  * 1. Checks if a custom server URL was configured in-app (e.g. on mobile via Server Settings).
  * 2. In production builds with VITE_API_URL configured, uses the deployed backend domain.
- * 3. In production builds without VITE_API_URL, falls back to "" (relative "/api/..." requests for reverse proxy / same domain).
+ * 3. In production / mobile APK builds, defaults to deployed Render cloud URL: https://ai-land-assist.onrender.com.
  * 4. In local development, falls back to "http://localhost:8000".
  */
 export function getApiBaseUrl(): string {
@@ -20,7 +22,7 @@ export function getApiBaseUrl(): string {
   }
 
   if (import.meta.env.PROD) {
-    return "";
+    return DEFAULT_PRODUCTION_API_URL;
   }
 
   return "http://localhost:8000";
@@ -36,5 +38,6 @@ export function setApiBaseUrl(url: string): void {
   }
 }
 
-// Proxy getter for backward compatibility with `import { API_BASE_URL }`
-export const API_BASE_URL: string = getApiBaseUrl();
+// Dynamically resolves current API URL
+export const getApiUrl = getApiBaseUrl;
+export const API_BASE_URL: string = DEFAULT_PRODUCTION_API_URL;
