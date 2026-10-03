@@ -84,23 +84,38 @@ def load_document_image(file_bytes: bytes, filename: str = "") -> np.ndarray:
             pdf = pdfium.PdfDocument(file_bytes)
             if len(pdf) == 0:
                 raise ValueError("PDF document has 0 pages.")
-            # Render first page at high quality (scale=2.5 ~ 180-200 DPI)
+            # Render first page at memory-safe quality (scale=1.5 ~ 110-120 DPI, optimal for OCR without OOM)
             page = pdf[0]
-            pil_image = page.render(scale=2.5).to_pil()
+            pil_image = page.render(scale=1.5).to_pil()
             rgb_arr = np.array(pil_image)
+            del pil_image
+            del pdf
             # Convert RGB to BGR for OpenCV
             if len(rgb_arr.shape) == 2:
-                return cv2.cvtColor(rgb_arr, cv2.COLOR_GRAY2BGR)
-            return cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2BGR)
+                image = cv2.cvtColor(rgb_arr, cv2.COLOR_GRAY2BGR)
+            else:
+                image = cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2BGR)
+            del rgb_arr
         except Exception as e:
             logger.error(f"Failed to render PDF: {e}")
             raise ValueError(f"Could not render PDF document: {str(e)}")
+    else:
+        # Handle Standard Image formats
+        nparr = np.frombuffer(file_bytes, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        del nparr
+        if image is None:
+            raise ValueError("Could not decode image format. Supported: JPG, JPEG, PNG, WEBP, PDF.")
 
-    # Handle Standard Image formats
-    nparr = np.frombuffer(file_bytes, np.uint8)
-    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if image is None:
-        raise ValueError("Could not decode image format. Supported: JPG, JPEG, PNG, WEBP, PDF.")
+    # Memory Safety: Cap oversized images (e.g. 12-48MP smartphone camera photos) to max 1500px
+    # This prevents ONNX neural networks and OpenCV from exceeding 512MB RAM limits while retaining 100% text readability
+    MAX_DOC_DIM = 1500
+    h, w = image.shape[:2]
+    if max(h, w) > MAX_DOC_DIM:
+        scale = MAX_DOC_DIM / float(max(h, w))
+        new_w, new_h = int(w * scale), int(h * scale)
+        image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        logger.info(f"Scaled oversized image from {w}x{h} to {new_w}x{new_h} for container memory safety.")
 
     return image
 
@@ -628,7 +643,7 @@ def run_multilingual_ocr(
 # 7. BASE64 ENCODING FOR EVIDENCE VIEWER
 # ==========================================
 
-def encode_image_to_base64(image: np.ndarray, max_dim: int = 1400) -> str:
+def encode_image_to_base64(image: np.ndarray, max_dim: int = 1000) -> str:
     """Encodes image as JPEG Base64 Data URL for frontend evidence display."""
     if image is None or image.size == 0:
         return ""
@@ -639,8 +654,9 @@ def encode_image_to_base64(image: np.ndarray, max_dim: int = 1400) -> str:
     else:
         resized = image
 
-    _, buffer = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+    _, buffer = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
     b64_str = base64.b64encode(buffer).decode('utf-8')
+    del buffer
     return f"data:image/jpeg;base64,{b64_str}"
 
 

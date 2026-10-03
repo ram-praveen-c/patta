@@ -380,6 +380,9 @@ async def extract_document(
             "error": str(e),
             "rawText": ""
         }
+    finally:
+        import gc
+        gc.collect()
 
 
 # ==========================================
