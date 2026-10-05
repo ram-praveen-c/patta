@@ -1,5 +1,5 @@
 import type { PropertyRecord } from "@/data/mockData";
-import { API_BASE_URL } from "@/lib/apiConfig";
+import { API_BASE_URL, getApiBaseUrl } from "@/lib/apiConfig";
 
 export interface ExtractionResult {
   success: boolean;

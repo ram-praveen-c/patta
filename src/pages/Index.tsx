@@ -138,38 +138,38 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header onOpenDebug={() => setDebugDrawerOpen(true)} />
-      <main className="container mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-2.5 sm:px-4 py-3 sm:py-6 space-y-4 sm:space-y-6">
         {/* Navigation Tabs Header */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="flex items-center justify-between border-b border-border/40 pb-3 mb-6 overflow-x-auto">
-            <TabsList className="glass-card bg-muted/60 p-1">
-              <TabsTrigger value="overview" className="gap-2 text-xs">
-                <LayoutGrid className="h-4 w-4" /> {t.tabOverview}
+          <div className="flex items-center border-b border-border/30 pb-2 mb-4 overflow-x-auto no-scrollbar -mx-2.5 px-2.5 sm:mx-0 sm:px-0">
+            <TabsList className="glass-card bg-muted/60 p-1 flex-nowrap inline-flex h-9 sm:h-10">
+              <TabsTrigger value="overview" className="gap-1.5 text-xs py-1 px-2.5 sm:px-3 whitespace-nowrap">
+                <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t.tabOverview}
               </TabsTrigger>
-              <TabsTrigger value="analytics" className="gap-2 text-xs">
-                <BarChart3 className="h-4 w-4" /> {t.tabAnalytics}
+              <TabsTrigger value="analytics" className="gap-1.5 text-xs py-1 px-2.5 sm:px-3 whitespace-nowrap">
+                <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t.tabAnalytics}
               </TabsTrigger>
-              <TabsTrigger value="compare" className="gap-2 text-xs">
-                <ArrowLeftRight className="h-4 w-4" /> {t.tabCompare}
+              <TabsTrigger value="compare" className="gap-1.5 text-xs py-1 px-2.5 sm:px-3 whitespace-nowrap">
+                <ArrowLeftRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t.tabCompare}
               </TabsTrigger>
-              <TabsTrigger value="history" className="gap-2 text-xs">
-                <History className="h-4 w-4" /> {t.tabHistory}
+              <TabsTrigger value="history" className="gap-1.5 text-xs py-1 px-2.5 sm:px-3 whitespace-nowrap">
+                <History className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t.tabHistory}
               </TabsTrigger>
-              <TabsTrigger value="chat" className="gap-2 text-xs">
-                <MessageSquare className="h-4 w-4" /> {t.tabChat}
+              <TabsTrigger value="chat" className="gap-1.5 text-xs py-1 px-2.5 sm:px-3 whitespace-nowrap">
+                <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t.tabChat}
               </TabsTrigger>
-              <TabsTrigger value="report" className="gap-2 text-xs">
-                <Printer className="h-4 w-4" /> {t.tabReport}
+              <TabsTrigger value="report" className="gap-1.5 text-xs py-1 px-2.5 sm:px-3 whitespace-nowrap">
+                <Printer className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t.tabReport}
               </TabsTrigger>
-              <TabsTrigger value="admin" className="gap-2 text-xs text-primary font-medium">
-                <Database className="h-4 w-4" /> {t.tabAdmin}
+              <TabsTrigger value="admin" className="gap-1.5 text-xs py-1 px-2.5 sm:px-3 whitespace-nowrap text-primary font-medium">
+                <Database className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t.tabAdmin}
               </TabsTrigger>
             </TabsList>
           </div>
 
           {/* TAB 1: OVERVIEW & GIS MAP */}
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
+          <TabsContent value="overview" className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               <DocumentUpload
                 onExtracted={handleExtracted}
                 onOpenRawOcr={() => setRawOcrOpen(true)}
