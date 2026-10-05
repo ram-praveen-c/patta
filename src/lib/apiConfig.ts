@@ -1,4 +1,4 @@
-export const DEFAULT_PRODUCTION_API_URL = "https://649a-2409-40f4-123-f538-c847-9d94-f1b7-28e2.ngrok-free.app";
+export const DEFAULT_PRODUCTION_API_URL = "http://192.168.31.109:8000";
 
 /**
  * Global API URL Configuration
