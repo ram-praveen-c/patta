@@ -48,11 +48,12 @@ os.makedirs(MAPS_DIR, exist_ok=True)
 app.mount("/static/maps", StaticFiles(directory=MAPS_DIR), name="static_maps")
 
 
-@app.get("/health")
+@app.api_route("/", methods=["GET", "HEAD"])
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():
     """
     Production health check endpoint (Requirement 14).
-    Used by cloud platforms, load balancers, and Docker health checks.
+    Supports GET and HEAD for UptimeRobot, cloud platforms, and load balancers.
     """
     return {"status": "ok"}
 
