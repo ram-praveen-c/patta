@@ -41,7 +41,10 @@ export const ServerSettingsModal = ({ open, onOpenChange }: Props) => {
 
     try {
       const endpoint = cleanUrl === "" ? "/health" : `${cleanUrl}/health`;
-      const res = await fetch(endpoint, { method: "GET" });
+      const res = await fetch(endpoint, {
+        method: "GET",
+        headers: { "ngrok-skip-browser-warning": "true" }
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.status === "ok") {
