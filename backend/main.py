@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+import asyncio
 import traceback
 import sys
 import os
@@ -190,9 +191,10 @@ async def extract_document(
         doc_id = f"DOC-{uuid.uuid4().hex[:8].upper()}"
         contents = await file.read()
 
-        # Step 1: Execute full CV & Preprocessing & Multilingual OCR Pipeline
+        # Step 1: Execute full CV & Preprocessing & Multilingual OCR Pipeline in worker threadpool
+        # This keeps the main asyncio event loop 100% responsive so /health and UptimeRobot pings never block
         from cv_pipeline import process_document_pipeline
-        pipeline_res = process_document_pipeline(contents, filename=file.filename, lang=lang)
+        pipeline_res = await asyncio.to_thread(process_document_pipeline, contents, filename=file.filename, lang=lang)
 
         if not pipeline_res.get("success"):
             return {
