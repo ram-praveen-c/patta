@@ -107,9 +107,9 @@ def load_document_image(file_bytes: bytes, filename: str = "") -> np.ndarray:
         if image is None:
             raise ValueError("Could not decode image format. Supported: JPG, JPEG, PNG, WEBP, PDF.")
 
-    # Memory Safety: Cap oversized images (e.g. 12-48MP smartphone camera photos) to max 1500px
+    # Memory Safety: Cap oversized images (e.g. 12-48MP smartphone camera photos) to max 1200px
     # This prevents ONNX neural networks and OpenCV from exceeding 512MB RAM limits while retaining 100% text readability
-    MAX_DOC_DIM = 1500
+    MAX_DOC_DIM = 1200
     h, w = image.shape[:2]
     if max(h, w) > MAX_DOC_DIM:
         scale = MAX_DOC_DIM / float(max(h, w))
